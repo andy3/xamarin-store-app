@@ -46,6 +46,8 @@ namespace XamarinStore.iOS
 		{
 			base.ViewWillAppear (animated);
 			NavigationItem.RightBarButtonItem = AppDelegate.Shared.CreateBasketButton ();
+			if(UIImagePickerController.IsSourceTypeAvailable (UIImagePickerControllerSourceType.Camera)) 
+			NavigationItem.LeftBarButtonItem = AppDelegate.Shared.CreateSelfieButton ();
 		}
 
 		class ProductListViewSource : UITableViewSource

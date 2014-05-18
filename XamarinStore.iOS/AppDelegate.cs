@@ -7,6 +7,9 @@ using MonoTouch.UIKit;
 using MonoTouch.Foundation;
 using MonoTouch.CoreAnimation;
 using MonoTouch.CoreGraphics;
+using MonoTouch.MessageUI;
+using BigTed;
+using MonoTouch.Twitter;
 
 namespace XamarinStore.iOS
 {
@@ -51,6 +54,7 @@ namespace XamarinStore.iOS
 			};
 			navigation.PushViewController (productDetails, true);
 		}
+
 		public void ShowBasket ()
 		{
 			var basketVc = new BasketViewController (WebService.Shared.CurrentOrder);
@@ -85,6 +89,7 @@ namespace XamarinStore.iOS
 		{
 			navigation.PopToRootViewController (true);
 		}
+
 		BasketButton button;
 		public UIBarButtonItem CreateBasketButton ()
 		{
@@ -97,9 +102,82 @@ namespace XamarinStore.iOS
 			button.ItemsCount = WebService.Shared.CurrentOrder.Products.Count;
 			return new UIBarButtonItem (button);
 		}
+
 		public void UpdateProductsCount()
 		{
 			button.UpdateItemsCount(WebService.Shared.CurrentOrder.Products.Count);
+		}
+
+		public void SelfieShoot()
+		{
+			UIImagePickerController imagePickerController = new UIImagePickerController ();
+			imagePickerController.FinishedPickingMedia += HandleFinishedPickingMedia;
+			imagePickerController.Canceled += (object sender, EventArgs e) => navigation.DismissViewController (true, null);
+			imagePickerController.SourceType = UIImagePickerControllerSourceType.Camera;
+			imagePickerController.AllowsEditing = false;
+			if(UIImagePickerController.IsCameraDeviceAvailable(UIImagePickerControllerCameraDevice.Front))
+				imagePickerController.CameraDevice = UIImagePickerControllerCameraDevice.Front;
+
+			while (UIDevice.CurrentDevice.GeneratesDeviceOrientationNotifications)
+				UIDevice.CurrentDevice.EndGeneratingDeviceOrientationNotifications();
+			navigation.PresentViewController(imagePickerController, false, null);
+			while (UIDevice.CurrentDevice.GeneratesDeviceOrientationNotifications)
+				UIDevice.CurrentDevice.EndGeneratingDeviceOrientationNotifications();
+		}
+
+		void HandleFinishedPickingMedia (object sender, UIImagePickerMediaPickedEventArgs e)
+		{
+			navigation.DismissViewController (true, ()=>SendTweet(e.OriginalImage));
+			BTProgressHUD.Show ();
+		}
+
+		private void SendMail(UIImage imageAttachment)
+		{
+			MFMailComposeViewController mailController = new MFMailComposeViewController ();
+			mailController.SetToRecipients (new string[]{"hello@xamarin.com"});
+			mailController.SetSubject ("Xamarin shirt selfie");
+			mailController.SetMessageBody ("Hi Xamarin\n\nTake a look at my brandnew xamarin Shirt!", false);
+			mailController.AddAttachmentData (imageAttachment.AsJPEG(), "jpeg", "Xamarin-Selfie.jpg");
+
+			mailController.Finished += ( object s, MFComposeResultEventArgs args) => {
+				Console.WriteLine (args.Result.ToString ());
+				args.Controller.DismissViewController (true, null);
+			};
+
+			BTProgressHUD.Dismiss ();
+			navigation.PresentViewController (mailController, true, null);
+
+		}
+
+		private void SendTweet(UIImage imageAttachment)
+		{
+			var tvc = new TWTweetComposeViewController();
+			tvc.SetInitialText("Got a brandnew C# shirt from Xamarin.\nThank you @xamarinhq");
+			tvc.AddImage (imageAttachment);
+			BTProgressHUD.Dismiss ();
+
+			tvc.SetCompletionHandler((TWTweetComposeViewControllerResult r)=>{
+				navigation.DismissViewController(true,null);
+				if (r == TWTweetComposeViewControllerResult.Cancelled){
+					BTProgressHUD.ShowErrorWithStatus("Cancelled");
+				} else {
+					BTProgressHUD.ShowSuccessWithStatus("Sent");
+				}
+			});
+
+			navigation.PresentViewController(tvc, true, null);
+		}
+
+		SelfieButton selfieButton;
+		public UIBarButtonItem CreateSelfieButton ()
+		{
+			if (selfieButton == null) {
+				selfieButton = new SelfieButton () {
+					Frame = new RectangleF (0, 0, 44, 44),
+				};
+				selfieButton.TouchUpInside += (sender, e) => SelfieShoot();
+			}
+			return new UIBarButtonItem (selfieButton);
 		}
 	}
 }
